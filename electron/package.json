@@ -1,0 +1,58 @@
+{
+  "name": "stardust-tunnel-desk",
+  "version": "1.0.0",
+  "description": "Stardust VPN-Client (desktop version)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^35.1.4",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.stardust.vpn.client",
+    "productName": "Stardust VPN Client",
+    "files": [
+      "main.js",
+      "preload.js",
+      "node_modules/**/*",
+      "assets/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "../release/frontend/dist/",
+        "to": "./dist/"
+      },
+      {
+        "from": "../release/backend/",
+        "to": "./backend/"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [ "x64" ]
+        }
+      ],
+      "icon": "assets/your_icon.icns"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [ "x64" ]
+        }
+      ],
+      "icon": "assets/your_icon.ico"
+    },
+    "linux": {
+      "target": [ "AppImage" ]
+    }
+  },
+  "author": "Roman Rudyi",
+  "license": "ISC"
+}
