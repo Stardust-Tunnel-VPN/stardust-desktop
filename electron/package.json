@@ -38,7 +38,7 @@
           "arch": [ "x64" ]
         }
       ],
-      "icon": "assets/your_icon.icns"
+      "icon": "./assets/app_logo.icns"
     },
     "win": {
       "target": [
@@ -47,7 +47,7 @@
           "arch": [ "x64" ]
         }
       ],
-      "icon": "assets/your_icon.ico"
+      "icon": "./assets/app_logo.ico"
     },
     "linux": {
       "target": [ "AppImage" ]
