@@ -1,165 +1,167 @@
 /**
  * Stardust VPN Client - Electron Main Process
- * 
- * This file serves as the main entry point for the Stardust VPN Client application, 
- * which is built using Electron. The application provides a desktop client for 
- * managing VPN connections, with a backend service and a frontend interface.
- * 
- * Key Features:
- * - Cross-platform support (Windows, macOS, Linux(in the future)). -> we're also planning ioS/Android in the future!
- * - Backend service integration for handling API requests.
- * - Frontend interface served via Electron's BrowserWindow.
- * - Request interception to redirect API calls to the backend service.
- * - Dynamic window sizing based on the user's screen resolution.
- * - Application-specific branding with custom icons and titles.
- * 
- * Modules and Dependencies:
- * - `electron`: Core Electron modules for creating the desktop application.
- * - `child_process`: Used to spawn the backend process.
- * - `path`: Provides utilities for working with file and directory paths.
- * 
- * Environment Variables:
- * - `ELECTRON_DISABLE_SECURITY_WARNINGS`: Disables Electron's security warnings 
- *   during development.
- * 
- * Functions:
- * 
- * 1. `startBackend()`
- *    - Launches the backend service as a detached process.
- *    - Determines the backend executable path based on the operating system.
- *    - Ensures the backend process runs independently of the Electron process.
- * 
- * 2. `setupRequestInterception()`
- *    - Intercepts file protocol requests made by the frontend.
- *    - Redirects API requests (e.g., `file:///api/v1`) to the backend service 
- *      running on `http://localhost:8000/api/v1`.
- *    - Logs redirection details for debugging purposes.
- * 
- * 3. `createWindow()`
- *    - Creates the main application window with a size of 90% of the user's 
- *      screen resolution.
- *    - Loads the frontend interface from the `dist` directory.
- *    - Sets the application icon for macOS using the `app.dock.setIcon()` method.
- * 
- * Application Lifecycle:
- * - `app.whenReady()`: Initializes the application by setting up request 
- *   interception, starting the backend, and creating the main window.
- * - `app.on("activate")`: Recreates the main window if all windows are closed 
- *   (macOS-specific behavior).
- * - `app.on("window-all-closed")`: Quits the application when all windows are 
- *   closed, except on macOS where the application remains active.
- * 
- * File Structure:
- * - Backend Executables:
- *   - Windows: `release/backend/win/main.exe`
- *   - macOS: `release/backend/mac/main`
- *   - Linux: `release/backend/linux/main`
- * - Frontend Files:
- *   - `release/frontend/dist/index.html`
- * - Assets:
- *   - Application logo: `assets/app_logo.png`
- * 
- * Notes:
- * - The application disables Node.js integration in the renderer process for 
- *   security purposes (`nodeIntegration: false`).
- * - Context isolation is enabled to prevent potential security vulnerabilities 
- *   (`contextIsolation: true`).
- * - The backend process is launched in a detached mode to ensure it continues 
- *   running even if the Electron process is terminated.
- * 
- * Usage:
- * - This file is intended to be used as the main process script for the Electron 
- *   application. It should be executed using Electron's runtime.
- * 
- * Example Command:
- * ```
- * electron /path/to/main.js
- * ```
- * 
- * Created by Roman Rudyi
+ *
+ * Description:
+ * This file is the primary entry point for the Stardust VPN Client application,
+ * built with Electron. It handles the following:
+ * 1. Spawning a backend (main.exe / main) located in a folder alongside the main executable.
+ * 2. Loading the frontend from the "dist" folder using file://.
+ * 3. Intercepting file:///api/v1 requests and redirecting them to http://localhost:8000/api/v1.
+ * 4. Disabling webSecurity to allow loading local files without CORS issues.
+ *
+ * Key Points:
+ * - In development mode, backend executables are taken from ../release/backend/<platform>.
+ * - In production mode, backend executables are taken from a folder adjacent to the
+ *   Electron executable, usually placed there by electron-builder (backend/win/main.exe, etc.).
+ * - Frontend files are similarly loaded from ../release/frontend/dist in development,
+ *   or from dist/ adjacent to the installed executable in production.
+ *
+ * Workflow:
+ * - When Electron is ready, we set up request interception, spawn the backend,
+ *   and create the browser window.
+ * - Requests matching file:///api/v1 are redirected to http://localhost:8000/api/v1.
+ * - The backend runs silently and is killed on before-quit.
+ * - The browser window uses file:// to load index.html from the dist folder.
+ *
+ * Created by: Roman Rudyi
  */
-
-
 
 const { app, BrowserWindow, session, screen } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 
-process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1';
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = "1";
 
+const isDev = process.defaultApp || process.env.NODE_ENV === "development";
 let backendProcess;
 
+/**
+ * Spawns the backend executable depending on the current platform and build mode.
+ * On Windows in dev mode, it takes the file from ../release/backend/win/main.exe;
+ * in production, it uses the folder adjacent to the installed .exe (backend/win/main.exe).
+ * Similar logic applies for macOS and Linux.
+ */
 function startBackend() {
   let backendPath;
-  if (process.platform === "win32") {
-    backendPath = path.join(__dirname, "..", "release", "backend", "win", "main.exe");
-  } else if (process.platform === "darwin") {
-    backendPath = path.join(__dirname, "..", "release", "backend", "mac", "main");
-  } else {
-    backendPath = path.join(__dirname, "..", "release", "backend", "linux", "main");
-  }
 
-  console.log("Launching backend from:", backendPath);
-  backendProcess = spawn(backendPath, [], {
-    detached: true,
-    stdio: "ignore",
-    shell: true, 
-  });
-  backendProcess.unref();
+  if (process.platform === "win32") {
+    if (isDev) {
+      backendPath = path.join(__dirname, "..", "release", "backend", "win", "main.exe");
+    } else {
+      const exeDir = path.dirname(process.execPath);
+      backendPath = path.join(exeDir, "backend", "win", "main.exe");
+    }
+    console.log("Launching backend on Win:", backendPath);
+
+    backendProcess = spawn(backendPath, [], {
+      shell: false,
+      detached: false,
+      stdio: "ignore",
+      windowsHide: true
+    });
+  } else if (process.platform === "darwin") {
+    if (isDev) {
+      backendPath = path.join(__dirname, "..", "release", "backend", "mac", "main");
+    } else {
+      const exeDir = path.dirname(process.execPath);
+      backendPath = path.join(exeDir, "backend", "mac", "main");
+    }
+    console.log("Launching backend on macOS:", backendPath);
+
+    backendProcess = spawn(backendPath, [], {
+      shell: false,
+      detached: false,
+      stdio: "ignore"
+    });
+  } else {
+    if (isDev) {
+      backendPath = path.join(__dirname, "..", "release", "backend", "linux", "main");
+    } else {
+      const exeDir = path.dirname(process.execPath);
+      backendPath = path.join(exeDir, "backend", "linux", "main");
+    }
+    backendProcess = spawn(backendPath, [], {
+      shell: false,
+      detached: false,
+      stdio: "ignore"
+    });
+  }
 }
 
+/**
+ * Intercepts file:/// requests for /api/v1 paths and redirects them to
+ * http://localhost:8000/api/v1 in order to bypass CORS restrictions and
+ * seamlessly connect to the local backend.
+ */
 function setupRequestInterception() {
   session.defaultSession.webRequest.onBeforeRequest({ urls: ["file://*/*"] }, (details, callback) => {
-    if (details.url.startsWith("file:///api/v1")) {
-      const newUrl = details.url.replace("file:///api/v1", "http://localhost:8000/api/v1");
-      console.log(`Redirecting: ${details.url} --> ${newUrl}`);
+    const url = details.url;
+    const windowsRegex = /^file:\/\/\/[A-Za-z]:\/api\/v1/;
+
+    if (windowsRegex.test(url)) {
+      const newUrl = url.replace(windowsRegex, "http://localhost:8000/api/v1");
+      console.log(`Redirect (Win): ${url} -> ${newUrl}`);
       return callback({ redirectURL: newUrl });
     }
+
+    if (url.startsWith("file:///api/v1")) {
+      const newUrl = url.replace("file:///api/v1", "http://localhost:8000/api/v1");
+      console.log(`Redirect (mac/linux): ${url} -> ${newUrl}`);
+      return callback({ redirectURL: newUrl });
+    }
+
     return callback({});
   });
 }
 
+/**
+ * Creates the main application window, loads index.html from the dist folder using file://,
+ * and disables webSecurity to allow local resource loading.
+ */
 function createWindow() {
-const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  // 90% from screen size
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const winWidth = Math.round(width * 0.9);
   const winHeight = Math.round(height * 0.9);
-  const win = new BrowserWindow({
-    title: "Stardust VPN Client", 
+
+  const mainWin = new BrowserWindow({
+    title: "Stardust VPN Client",
     width: winWidth,
     height: winHeight,
-    
-    icon: path.join(__dirname, "assets", "app_logo.png"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      // preload: path.join(__dirname, "preload.js"),
-    },
+      webSecurity: false
+    }
   });
 
-  win.loadFile(path.join(__dirname, "..", "release", "frontend", "dist", "index.html"));
+  let indexPath;
+  if (isDev) {
+    indexPath = path.join(__dirname, "..", "release", "frontend", "dist", "index.html");
+  } else {
+    const exeDir = path.dirname(process.execPath);
+    indexPath = path.join(exeDir, "dist", "index.html");
+  }
 
-  if (process.platform === "darwin") {
-    app.dock.setIcon(path.join(__dirname, "assets", "app_logo.png"));
+  console.log("Loading index from:", indexPath);
+  mainWin.loadFile(indexPath);
+
+  if (isDev) {
+    mainWin.webContents.openDevTools();
   }
 }
 
-app.setName("Stardust VPN Client");
-
 app.whenReady().then(() => {
-  setupRequestInterception(); 
+  setupRequestInterception();
   startBackend();
   createWindow();
+});
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+app.on("before-quit", () => {
+  if (backendProcess && !backendProcess.killed) {
+    backendProcess.kill("SIGINT");
+  }
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  app.quit();
 });

@@ -11,48 +11,52 @@
     "electron": "^35.1.4",
     "electron-builder": "^26.0.12"
   },
+  "dependencies": {
+    "sudo-prompt": "^9.2.1"
+  },
   "build": {
     "appId": "com.stardust.vpn.client",
     "productName": "Stardust VPN Client",
+
     "files": [
       "main.js",
-      "preload.js",
       "node_modules/**/*",
       "assets/**/*"
     ],
+
     "extraFiles": [
       {
-        "from": "../release/frontend/dist/",
-        "to": "./dist/"
+        "from": "../release/frontend/dist",
+        "to": "dist",
+        "filter": ["**/*"]
       },
       {
-        "from": "../release/backend/",
-        "to": "./backend/"
+        "from": "../release/backend/win",
+        "to": "backend/win",
+        "filter": ["main.exe"]
+      },
+      {
+        "from": "../release/backend/mac",
+        "to": "backend/mac",
+        "filter": ["main"]
       }
     ],
-    "mac": {
-      "category": "public.app-category.utilities",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [ "x64" ]
-        }
-      ],
-      "icon": "./assets/app_logo.icns"
-    },
+
     "win": {
+      "icon": "./assets/app_logo.ico",
       "target": [
         {
           "target": "nsis",
-          "arch": [ "x64" ]
+          "arch": ["x64"]
         }
-      ],
-      "icon": "./assets/app_logo.ico"
+      ]
+    },
+    "mac": {
+      "icon": "./assets/app_logo.icns",
+      "category": "public.app-category.utilities"
     },
     "linux": {
-      "target": [ "AppImage" ]
+      "target": ["AppImage"]
     }
-  },
-  "author": "Roman Rudyi",
-  "license": "ISC"
+  }
 }
