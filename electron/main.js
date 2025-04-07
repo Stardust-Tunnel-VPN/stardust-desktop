@@ -2,6 +2,8 @@ const { app, BrowserWindow, session } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1';
+
 let backendProcess;
 
 function startBackend() {
@@ -49,8 +51,6 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, "..", "release", "frontend", "dist", "index.html"));
-
-  win.webContents.openDevTools();
 
   if (process.platform === "darwin") {
     app.dock.setIcon(path.join(__dirname, "assets", "app_logo.png"));
