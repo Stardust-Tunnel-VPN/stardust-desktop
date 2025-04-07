@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session } = require("electron");
+const { app, BrowserWindow, session, screen } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 
@@ -37,10 +37,14 @@ function setupRequestInterception() {
 }
 
 function createWindow() {
+const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  // 90% from screen size
+  const winWidth = Math.round(width * 0.9);
+  const winHeight = Math.round(height * 0.9);
   const win = new BrowserWindow({
     title: "Stardust VPN Client", 
-    width: 1024,
-    height: 768,
+    width: winWidth,
+    height: winHeight,
     
     icon: path.join(__dirname, "assets", "app_logo.png"),
     webPreferences: {
@@ -56,6 +60,8 @@ function createWindow() {
     app.dock.setIcon(path.join(__dirname, "assets", "app_logo.png"));
   }
 }
+
+app.setName("Stardust VPN Client");
 
 app.whenReady().then(() => {
   setupRequestInterception(); 
